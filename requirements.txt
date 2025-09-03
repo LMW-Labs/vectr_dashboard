@@ -1,0 +1,12 @@
+Flask
+Flask-Cors
+requests
+beautifulsoup4
+google-generativeai
+google-cloud-firestore
+python-dotenv
+tweepy
+praw
+google-api-python-client
+wordcloud
+pandas
