@@ -16,5 +16,5 @@ COPY . .
 EXPOSE 8080
 
 # Run the app using gunicorn.
-# The shell form of CMD is used to allow for environment variable substitution for the port.
-CMD gunicorn -w 4 -b "0.0.0.0:${PORT}" backend:app
+# Using sh -c ensures that the ${PORT} environment variable is correctly substituted.
+CMD ["/bin/sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 4 backend:app"]
