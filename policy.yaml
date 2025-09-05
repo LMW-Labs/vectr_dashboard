@@ -1,0 +1,6 @@
+name: organizations/633315812471/policies/gcp.restrictCmekCryptoKeyProjects
+spec:
+  rules:
+  - values:
+      allowedValues:
+      - projects/368242120642

@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardHeader, CardContent, CircularProgress, Alert } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
+import API_BASE_URL from '../apiConfig'; // Import the base URL
 
 const fetchAllInsights = async () => {
-  const response = await fetch('http://127.0.0.1:5001/api/insights');
+  const response = await fetch(`${API_BASE_URL}/api/insights`); // Use the base URL
   if (!response.ok) {
     throw new Error('Failed to fetch insights from the API.');
   }

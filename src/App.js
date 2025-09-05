@@ -6,11 +6,27 @@ import DashboardLayout from './DashboardLayout';
 
 const theme = createTheme({
   palette: {
+    mode: 'dark', // Use a dark theme for better contrast with the new background
     primary: {
-      main: '#1976d2',
+      main: '#36deef', // A vibrant color from your logo for primary actions
     },
     background: {
-      default: '#f4f6f8',
+      default: '#09111d', // Fallback color from your gradient
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: '#b0b0b0',
+    },
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: `
+        body {
+          background-image: linear-gradient(to top right, #1a0b1e, #09111d, #062338);
+          background-repeat: no-repeat;
+          background-attachment: fixed;
+        }
+      `,
     },
   },
   typography: {
