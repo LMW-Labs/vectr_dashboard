@@ -1,3 +1,4 @@
+
 # backend.py
 
 import os
@@ -277,3 +278,5 @@ def get_insights():
     except Exception as e:
         print(f"Error fetching insights: {e}")
         return jsonify({'error': 'Failed to fetch insights'}), 500
+if __name__ == "__main__":
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
