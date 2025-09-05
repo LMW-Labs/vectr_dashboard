@@ -1,3 +1,5 @@
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+const getApiUrl = () => {
+  return process.env.REACT_APP_API_URL || 'https://py-vectr-backend--vectr-dashboard.us-central1.hosted.app';
+};
 
-export default API_BASE_URL;
+export default getApiUrl;
