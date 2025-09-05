@@ -11,8 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application's code
 COPY . .
 
-# Make port 8080 available to the world outside this container
+# The PORT environment variable will be provided by App Hosting.
+# EXPOSE is not strictly necessary but good for documentation.
 EXPOSE 8080
 
-# Run the app. The command is taken from the Procfile.
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8080", "backend:app"]
+# Run the app using gunicorn.
+# The shell form of CMD is used to allow for environment variable substitution for the port.
+CMD gunicorn -w 4 -b "0.0.0.0:${PORT}" backend:app
