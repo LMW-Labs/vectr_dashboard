@@ -29,7 +29,7 @@ from data_processing import clean_data, get_cleaned_data_as_csv
 
 # --- Initialize Flask App ---
 app = Flask(__name__)
-CORS(app) # Enable Cross-Origin Resource Sharing
+CORS(app, resources={r"/api/*": {"origins": "*"}}) # Enable Cross-Origin Resource Sharing for all /api/ routes
 
 # --- Helper Functions (from your various files) ---
 
