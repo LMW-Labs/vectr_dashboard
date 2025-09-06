@@ -20,7 +20,9 @@
     "algoliasearch": "^5.37.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-scripts": "^5.0.1"
+    "react-scripts": "^5.0.1",
+    "react-router-dom": "^6.25.1",
+    "firebase": "^10.12.3"
   },
   "browserslist": {
     "production": [

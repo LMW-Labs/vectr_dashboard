@@ -6,10 +6,12 @@ import google.generativeai as genai
 import json
 import time
 from google.cloud import firestore
-from dotenv import load_dotenv
 import tweepy
 import praw
-from googleapiclient.discovery import build # 1. ADDED MISSING IMPORT
+from googleapiclient.discovery import build
+
+# Import the new secret manager helper
+from secret_manager import get_secret
 
 def scrape_website_text(url):
     """Fetches and extracts clean text from a given URL."""
@@ -60,11 +62,10 @@ def fetch_from_x_api(keywords):
     """
     Searches for recent tweets using the X API v2 and returns their text.
     """
-    load_dotenv()
-    bearer_token = os.environ.get("X_BEARER_TOKEN")
+    bearer_token = get_secret("X_BEARER_TOKEN")
 
     if not bearer_token:
-        print("Error: X_BEARER_TOKEN not found in .env file.")
+        print("Error: X_BEARER_TOKEN not found in Secret Manager.")
         return None
 
     try:
@@ -88,12 +89,11 @@ def fetch_from_reddit_api(subreddit, keywords):
     """
     Searches a subreddit for keywords and returns the content of new posts.
     """
-    load_dotenv()
     reddit = praw.Reddit(
-    client_id=os.environ.get("REDDIT_CLIENT_ID"),
-    client_secret=os.environ.get("REDDIT_CLIENT_SECRET"),
-    user_agent=os.environ.get("REDDIT_USER_AGENT"),
-)
+        client_id=get_secret("REDDIT_CLIENT_ID"),
+        client_secret=get_secret("REDDIT_CLIENT_SECRET"),
+        user_agent=get_secret("REDDIT_USER_AGENT"),
+    )
 
     try:
         query = ' OR '.join(f'"{keyword}"' for keyword in keywords)

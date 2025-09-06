@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, TextField, Button, Typography, Grid, CircularProgress, Alert } from '@mui/material';
+import API_BASE_URL from '../apiConfig'; // Import the base URL
 
 export default function DiscoverSources() {
   const [query, setQuery] = useState('');
@@ -13,7 +14,7 @@ export default function DiscoverSources() {
     setResults([]);
 
     try {
-      const response = await fetch('http://127.0.0.1:5001/api/discover', {
+      const response = await fetch(`${API_BASE_URL}/api/discover`, { // Use the base URL
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,7 +45,7 @@ export default function DiscoverSources() {
       </Typography>
 
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={9}>
+        <Grid sx={{ width: { xs: '100%', md: '75%' } }}>
           <TextField
             fullWidth
             label="Search Query (e.g., 'new AI startups')"
@@ -53,7 +54,7 @@ export default function DiscoverSources() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid sx={{ width: { xs: '100%', md: '25%' } }}>
           <Button
             variant="contained"
             color="primary"

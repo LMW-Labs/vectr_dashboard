@@ -1,3 +1,4 @@
+
 # backend.py
 
 import os
@@ -12,28 +13,32 @@ from google.cloud import firestore
 from googleapiclient.discovery import build
 from wordcloud import WordCloud
 import pandas as pd
-from dotenv import load_dotenv
 from flask_cors import cross_origin
+import sendgrid
+from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 
+
+# Import the new secret manager helper
+from secret_manager import get_secret
 
 # It's best to move all logic functions into scraper_logic.py,
 # but for simplicity in this step, we'll keep them here.
 # We'll import the main analysis function.
 from scraper_logic import run_scraper_analysis, PROMPT_LIBRARY
+from data_processing import clean_data, get_cleaned_data_as_csv
 
 # --- Initialize Flask App ---
-load_dotenv()
 app = Flask(__name__)
-CORS(app) # Enable Cross-Origin Resource Sharing
+CORS(app, resources={r"/api/*": {"origins": "*"}}) # Enable Cross-Origin Resource Sharing for all /api/ routes
 
 # --- Helper Functions (from your various files) ---
 
 def discover_urls_with_google(query, num_results=10):
     """Uses the Google Custom Search API to find URLs for a given query."""
-    API_KEY = os.environ.get("GOOGLE_API_KEY")
-    SEARCH_ENGINE_ID = os.environ.get("SEARCH_ENGINE_ID")
+    API_KEY = get_secret("GOOGLE_API_KEY")
+    SEARCH_ENGINE_ID = get_secret("SEARCH_ENGINE_ID")
     if not API_KEY or not SEARCH_ENGINE_ID:
-        raise ValueError("GOOGLE_API_KEY and SEARCH_ENGINE_ID must be set.")
+        raise ValueError("GOOGLE_API_KEY and SEARCH_ENGINE_ID must be set in Secret Manager.")
     try:
         service = build("customsearch", "v1", developerKey=API_KEY)
         result = service.cse().list(
@@ -46,6 +51,78 @@ def discover_urls_with_google(query, num_results=10):
 
 # --- API Endpoints ---
 
+@app.route('/api/upload_data', methods=['POST'])
+def upload_data_endpoint():
+    if 'files' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    files = request.files.getlist('files')
+
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No selected file'}), 400
+
+    all_cleaned_dfs = []
+    errors = []
+
+    for file in files:
+        if file:
+            file_content = file.read()
+            cleaned_df, error = clean_data(file_content, file.filename)
+            if error:
+                errors.append(f"Error processing {file.filename}: {error}")
+            else:
+                all_cleaned_dfs.append(cleaned_df)
+
+    if not all_cleaned_dfs:
+        return jsonify({'error': '. '.join(errors)}), 400
+
+    # Concatenate all cleaned dataframes
+    combined_df = pd.concat(all_cleaned_dfs, ignore_index=True)
+    
+    # Optional: drop duplicates that might be created across files
+    combined_df.drop_duplicates(inplace=True)
+
+    cleaned_csv = get_cleaned_data_as_csv(combined_df)
+    return jsonify({'cleaned_data': cleaned_csv})
+
+@app.route('/api/share_email', methods=['POST'])
+def share_email_endpoint():
+    data = request.get_json()
+    email = data.get('email')
+    csv_data = data.get('csv_data')
+
+    if not email or not csv_data:
+        return jsonify({'error': 'Missing email or csv_data'}), 400
+
+    SENDGRID_API_KEY = get_secret("SENDGRID_API_KEY")
+    if not SENDGRID_API_KEY:
+        return jsonify({'error': 'SENDGRID_API_KEY not found in Secret Manager.'}), 500
+
+    message = Mail(
+        from_email='your-email@example.com', # Replace with a verified sender
+        to_emails=email,
+        subject='Cleaned CSV Data',
+        html_content='<strong>Here is the cleaned data you requested.</strong>')
+
+    encoded_file = base64.b64encode(csv_data.encode()).decode()
+    attachedFile = Attachment(
+        FileContent(encoded_file),
+        FileName('cleaned_data.csv'),
+        FileType('text/csv'),
+        Disposition('attachment')
+    )
+    message.attachment = attachedFile
+
+    try:
+        sg = sendgrid.SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+        if response.status_code >= 200 and response.status_code < 300:
+            return jsonify({'message': 'Email sent successfully'})
+        else:
+            return jsonify({'error': 'Failed to send email', 'details': response.body}), response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/discover', methods=['POST'])
 def discover_endpoint():
     """Endpoint to discover new URLs based on a search query."""
@@ -56,21 +133,57 @@ def discover_endpoint():
     
     try:
         urls = discover_urls_with_google(query)
+        
+        # Save discovered URLs to Firestore
+        db = firestore.Client()
+        batch = db.batch()
+        for url in urls:
+            doc_ref = db.collection('discovered_sources').document()
+            batch.set(doc_ref, {
+                'url': url,
+                'timestamp': firestore.SERVER_TIMESTAMP
+            })
+        batch.commit()
+        
         return jsonify({"urls": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/discovered_sources', methods=['GET'])
+def get_discovered_sources():
+    """Fetches all discovered URLs from the Firestore database."""
+    try:
+        db = firestore.Client()
+        sources_ref = db.collection('discovered_sources').order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50)
+        docs = sources_ref.stream()
+
+        sources_list = []
+        for doc in docs:
+            source_data = doc.to_dict()
+            source_data['id'] = doc.id
+            sources_list.append(source_data)
+
+        return jsonify(sources_list)
+
+    except Exception as e:
+        print(f"Error fetching discovered sources: {e}")
+        return jsonify({'error': 'Failed to fetch discovered sources'}), 500
 
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_endpoint():
     """Endpoint to run the main scraper analysis."""
     data = request.get_json()
-    api_key = data.get('apiKey')
     analysis_goal = data.get('analysisGoal')
     sites = data.get('sites')
 
-    if not all([api_key, analysis_goal, sites]):
-        return jsonify({"error": "Missing required fields: apiKey, analysisGoal, sites"}), 400
+    if not all([analysis_goal, sites]):
+        return jsonify({"error": "Missing required fields: analysisGoal, sites"}), 400
+    
+    # Get the Gemini API key from Secret Manager
+    api_key = get_secret("GEMINI_API_KEY")
+    if not api_key:
+        return jsonify({"error": "GEMINI_API_KEY not found in Secret Manager."}), 500
     
     start_time = datetime.datetime.now(datetime.timezone.utc)
     
@@ -126,8 +239,8 @@ def search_endpoint():
     if not search_term:
         return jsonify({"error": "A 'searchTerm' is required."}), 400
 
-    ALGOLIA_APP_ID = os.environ.get("ALGOLIA_APP_ID")
-    ALGOLIA_SEARCH_KEY = os.environ.get("ALGOLIA_SEARCH_ONLY_API_KEY")
+    ALGOLIA_APP_ID = get_secret("ALGOLIA_APP_ID")
+    ALGOLIA_SEARCH_KEY = get_secret("ALGOLIA_SEARCH_ONLY_API_KEY")
     ALGOLIA_INDEX_NAME = "vectr_insights"
     
     headers = {
@@ -165,8 +278,5 @@ def get_insights():
     except Exception as e:
         print(f"Error fetching insights: {e}")
         return jsonify({'error': 'Failed to fetch insights'}), 500
-
-# To run this backend server locally:
-if __name__ == '__main__':
-    # Use port 5001 to avoid conflict with default React port (3000) or Flask default (5000)
-    app.run(debug=True, port=5001)
+if __name__ == "__main__":
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))

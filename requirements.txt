@@ -1,12 +1,7 @@
-Flask
-Flask-Cors
-requests
-beautifulsoup4
-google-generativeai
-google-cloud-firestore
-python-dotenv
-tweepy
-praw
+flask
+flask_cors
+google-cloud-firestore==2.11.0
 google-api-python-client
 wordcloud
 pandas
+sendgrid
