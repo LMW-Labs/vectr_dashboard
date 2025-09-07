@@ -1,3 +1,4 @@
+
 # backend.py
 
 import os
@@ -28,7 +29,7 @@ from data_processing import clean_data, get_cleaned_data_as_csv
 
 # --- Initialize Flask App ---
 app = Flask(__name__)
-CORS(app) # Enable Cross-Origin Resource Sharing
+CORS(app, resources={r"/api/*": {"origins": "*"}}) # Enable Cross-Origin Resource Sharing for all /api/ routes
 
 # --- Helper Functions (from your various files) ---
 
@@ -288,3 +289,5 @@ def get_insights():
     except Exception as e:
         print(f"Error fetching insights: {e}")
         return jsonify({'error': 'Failed to fetch insights'}), 500
+if __name__ == "__main__":
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))

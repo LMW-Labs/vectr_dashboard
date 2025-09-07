@@ -1,0 +1,33 @@
+# Ignore Dockerfiles
+Dockerfile
+Dockerfile.frontend
+
+# Ignore build artifacts
+build/
+node_modules/
+npm-debug.log
+
+# Ignore Python virtual environment and cache
+.venv/
+*.pyc
+__pycache__/
+
+# Ignore Git and other version control files
+.git/
+.gitignore
+
+# Ignore sensitive environment files
+.env
+.env.*
+*.key
+
+# Ignore IDE and OS-specific files
+.idea/
+.vscode/
+.DS_Store
+
+# Ignore other project files not needed in the image
+.idx/
+Procfile
+policy.yaml
+*.md
