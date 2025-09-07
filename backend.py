@@ -98,7 +98,7 @@ def share_email_endpoint():
         return jsonify({'error': 'SENDGRID_API_KEY not found in Secret Manager.'}), 500
 
     message = Mail(
-        from_email='your-email@example.com', # Replace with a verified sender
+        from_email='[YOUR_VERIFIED_SENDER_EMAIL]', # Replace with a verified sender
         to_emails=email,
         subject='Cleaned CSV Data',
         html_content='<strong>Here is the cleaned data you requested.</strong>')
@@ -195,9 +195,18 @@ def analyze_endpoint():
 
     # Fetch results from Firestore that were just added
     try:
+        # FIX: Introduce a buffer to avoid timestamp race conditions
+        query_start_time = start_time - datetime.timedelta(seconds=10)
+
         db = firestore.Client()
-        query = db.collection('insights').where(filter=firestore.FieldFilter('timestamp', '>=', start_time))
-        docs = [doc.to_dict() for doc in query.stream()]
+        query = db.collection('insights').where(filter=firestore.FieldFilter('timestamp', '>=', query_start_time))
+        
+        # FIX: Also, ensure the document ID is added for the frontend
+        docs = []
+        for doc in query.stream():
+            doc_data = doc.to_dict()
+            doc_data['id'] = doc.id
+            docs.append(doc_data)
 
         if not docs:
             return jsonify({"message": "Analysis complete, but no new insights were found.", "data": [], "columns": columns})
@@ -205,7 +214,9 @@ def analyze_endpoint():
         # Process data for JSON response
         df = pd.DataFrame(docs)
         if 'timestamp' in df.columns:
-            df['timestamp'] = df['timestamp'].astype(str) # Convert timestamp for JSON
+            # Ensure timestamp is a datetime object before formatting
+            df['timestamp'] = pd.to_datetime(df['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
+
         
         table_data = df.to_dict('records')
         

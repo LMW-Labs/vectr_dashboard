@@ -1,0 +1,18 @@
+
+backend:
+  run: gunicorn -w 4 'backend:app'
+  managedSecrets:
+    - SENDGRID_API_KEY
+    - GOOGLE_API_KEY
+    - SEARCH_ENGINE_ID
+    - GEMINI_API_KEY
+    - ALGOLIA_APP_ID
+    - ALGOLIA_SEARCH_ONLY_API_KEY
+frontend:
+  build: npm run build
+  run: npx serve -s build
+rewrites:
+  - source: /api/**
+    destination: /__backend__/**
+  - source: /**
+    destination: /index.html

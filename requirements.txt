@@ -7,3 +7,9 @@ pandas
 gunicorn
 requests
 sendgrid
+google-cloud-secret-manager
+beautifulsoup4
+Jinja2
+google-generativeai
+tweepy
+praw

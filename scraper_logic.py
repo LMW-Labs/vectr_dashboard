@@ -70,7 +70,7 @@ def fetch_from_x_api(keywords):
 
     try:
         client = tweepy.Client(bearer_token)
-        query = f"({' OR '.join(keywords)}) -is:retweet lang:en"
+        query = f"(' OR '.join(keywords)) -is:retweet lang:en"
         response = client.search_recent_tweets(query=query, max_results=100)
         
         tweets = response.data
@@ -112,63 +112,63 @@ def fetch_from_reddit_api(subreddit, keywords):
 
 PROMPT_LIBRARY = {
     'pain_points': {
-        "prompt": """You are a market research analyst. Your goal is to identify any user-expressed problem, frustration, or unmet need in the provided text. Scan the entire text for complaints, wishes, or struggles. For each pain point you find, extract the following into a JSON object: 1. "insight": A concise summary of the user's pain point. 2. "category": Classify the pain point (e.g., "Usability", "Pricing", "Customer Support"). 3. "quote": The full, direct sentence where the pain was mentioned. Return a list of JSON objects. If none are found, return an empty list.""",
+        "prompt": '''You are a market research analyst. Your goal is to identify user-expressed problems, frustrations, or unmet needs in the provided text. Scan the entire text for any indication of a complaint, wish, or struggle, even if not explicitly stated. For each pain point you find, extract the following into a JSON object: 1. "insight": A concise summary of the user's pain point. 2. "category": Classify the pain point (e.g., "Usability", "Pricing", "Customer Support", "Functionality"). 3. "quote": The full, direct sentence or phrase where the pain was mentioned. Return a list of JSON objects. If no pain points are found, return an empty list.''',
         "columns": [{'name': 'Pain Point', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'feature_requests': {
-        "prompt": """You are a product manager. Your goal is to identify specific feature requests or suggestions for improvement in the provided text. Look for phrases like "I wish it had", "it should do", "add a feature", or "it would be better if". For each feature request you find, extract the following into a JSON object: 1. "insight": A summary of the requested feature. 2. "category": Classify the request (e.g., "New Feature", "Enhancement", "Integration"). 3. "quote": The full, direct sentence where the request was made. Return a list of JSON objects. If none are found, return an empty list.""",
+        "prompt": '''You are a product manager. Your goal is to identify specific feature requests or suggestions for improvement. Look for any language that suggests a desire for new functionality or changes to existing features. This could be direct ("I wish it had...") or indirect ("It would be great if..."). For each feature request you find, extract the following into a JSON object: 1. "insight": A summary of the requested feature. 2. "category": Classify the request (e.g., "New Feature", "Enhancement", "Integration", "UI/UX"). 3. "quote": The full, direct sentence where the request was made. Return a list of JSON objects. If none are found, return an empty list.''',
         "columns": [{'name': 'Feature Request', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'purchase_drivers': {
-        "prompt": """You are a marketing strategist. Your goal is to understand why customers choose to buy a product or service, based on the provided text. Look for phrases like "the reason I bought", "sold me on", "the best feature is", or "I chose it because". For each purchase driver you find, extract the following into a JSON object: 1. "insight": A summary of the reason the customer made the purchase. 2. "category": Classify the driver (e.g., "Key Feature", "Price", "Brand Reputation", "Ease of Use"). 3. "quote": The full, direct sentence where the driver was mentioned. Return a list of JSON objects. If none are found, return an empty list.""",
+        "prompt": '''You are a marketing strategist. Your goal is to understand why customers choose a product or service. Look for any statements that reveal the motivation behind a purchase decision. This can include mentions of key features, price, brand reputation, or ease of use. For each purchase driver you find, extract the following into a JSON object: 1. "insight": A summary of the reason for the purchase. 2. "category": Classify the driver (e.g., "Key Feature", "Price", "Brand Reputation", "Ease of Use", "Recommendation"). 3. "quote": The full, direct sentence where the driver was mentioned. Return a list of JSON objects. If none are found, return an empty list.''',
         "columns": [{'name': 'Purchase Driver', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'positive_feedback': {
-        "prompt": """You are a social media manager. Your goal is to find positive feedback, praise, and testimonials in the provided text. Look for compliments, success stories, and expressions of satisfaction. For each piece of positive feedback you find, extract the following into a JSON object: 1. "insight": A summary of what the user liked or their success story. 2. "category": Classify the topic of the praise (e.g., "Customer Service", "Product Quality", "Performance"). 3. "quote": The full, direct sentence where the praise was given. Return a list of JSON objects. If none are found, return an empty list.""",
+        "prompt": '''You are a social media manager. Your goal is to find positive feedback, praise, and testimonials. Look for compliments, success stories, and expressions of satisfaction. For each piece of positive feedback, extract the following into a JSON object: 1. "insight": A summary of what the user liked. 2. "category": Classify the topic of the praise (e.g., "Customer Service", "Product Quality", "Performance", "Value"). 3. "quote": The full, direct sentence where the praise was given. Return a list of JSON objects. If none are found, return an empty list.''',
         "columns": [{'name': 'Positive Feedback', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'lead_generation': {
-        "prompt": """You are a business development analyst. Your goal is to find companies discussing a need to "increase leads," "improve lead quality," or "fill the sales pipeline." For each potential client you find, extract: {"insight": "A summary of their lead generation goal.", "category": "Lead Generation", "quote": "The direct sentence where the goal was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a business development analyst. Your goal is to find companies or individuals expressing a need for business growth. Scan the text for any mention of needing more customers, increasing sales, improving their marketing pipeline, or generating leads. The language might not be direct. For each potential client, extract: {"insight": "A summary of their business growth goal.", "category": "Lead Generation", "quote": "The direct sentence where the goal was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Lead Gen Opportunity', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'cac_reduction': {
-        "prompt": """You are a financial analyst. Your goal is to find companies discussing "high Customer Acquisition Cost (CAC)," "reducing ad spend," or "improving marketing ROI." For each company, extract: {"insight": "A summary of their cost-reduction challenge.", "category": "CAC Reduction", "quote": "The direct sentence where the challenge was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a financial analyst. Your goal is to find companies discussing challenges with customer acquisition costs (CAC). Look for mentions of high ad spend, improving marketing ROI, or making customer acquisition more efficient. For each company, extract: {"insight": "A summary of their cost-reduction challenge.", "category": "CAC Reduction", "quote": "The direct sentence where the challenge was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Cost Reduction Need', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'brand_awareness': {
-        "prompt": """You are a PR specialist. Your goal is to find companies discussing a need to "increase brand visibility," "get more press," or "improve brand reputation." For each company, extract: {"insight": "A summary of their brand awareness goal.", "category": "Brand Awareness", "quote": "The direct sentence where the goal was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a PR specialist. Your goal is to find companies discussing a need to increase their brand visibility or reputation. Look for goals related to getting more press, improving public perception, or general brand awareness. For each company, extract: {"insight": "A summary of their brand awareness goal.", "category": "Brand Awareness", "quote": "The direct sentence where the goal was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Brand Goal', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'market_expansion': {
-        "prompt": """You are a market expansion strategist. Your goal is to find companies discussing "entering a new market," "expanding to a region," or "launching a new product line." For each company, extract: {"insight": "A summary of their expansion plan.", "category": "Market Expansion", "quote": "The direct sentence where the plan was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a market expansion strategist. Your goal is to find companies planning to enter new markets, launch new product lines, or expand their business to new regions. For each company, extract: {"insight": "A summary of their expansion plan.", "category": "Market Expansion", "quote": "The direct sentence where the plan was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Expansion Plan', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'workflow_automation': {
-        "prompt": """You are an operations consultant. Your goal is to find companies discussing "automating manual processes," "reducing man-hours," or "improving operational efficiency." For each company, extract: {"insight": "A summary of their inefficiency pain point.", "category": "Workflow Automation", "quote": "The direct sentence where the pain point was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are an operations consultant. Your goal is to find companies discussing inefficiencies or the need to automate manual processes. Look for mentions of reducing man-hours, improving operational efficiency, or streamlining workflows. For each company, extract: {"insight": "A summary of their inefficiency pain point.", "category": "Workflow Automation", "quote": "The direct sentence where the pain point was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Automation Opportunity', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'hiring_talent': {
-        "prompt": """You are a recruiter. Your goal is to find companies that are "hiring for specific roles," "scaling our team," or "struggling to find talent." For each company, extract: {"insight": "A summary of their hiring or talent needs.", "category": "Talent Acquisition", "quote": "The direct sentence where the need was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a recruiter. Your goal is to find companies that are hiring or struggling to find talent. Look for mentions of open roles, scaling teams, or challenges in talent acquisition. For each company, extract: {"insight": "A summary of their hiring or talent needs.", "category": "Talent Acquisition", "quote": "The direct sentence where the need was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Hiring Need', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'supply_chain': {
-        "prompt": """You are a logistics expert. Your goal is to find companies mentioning "improving logistics," "reducing shipping times," or "supply chain bottlenecks." For each company, extract: {"insight": "A summary of their supply chain challenge.", "category": "Supply Chain", "quote": "The direct sentence where the challenge was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a logistics expert. Your goal is to find companies mentioning challenges in their supply chain. Look for discussions about improving logistics, reducing shipping times, or bottlenecks. For each company, extract: {"insight": "A summary of their supply chain challenge.", "category": "Supply Chain", "quote": "The direct sentence where the challenge was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Supply Chain Issue', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'customer_retention': {
-        "prompt": """You are a customer success manager. Your goal is to find companies focused on "reducing customer churn," "improving customer loyalty," or "increasing customer lifetime value (LTV)." For each, extract: {"insight": "A summary of their retention goal.", "category": "Customer Retention", "quote": "The direct sentence where the goal was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a customer success manager. Your goal is to find companies focused on retaining customers. Look for discussions about reducing churn, improving loyalty, or increasing customer lifetime value (LTV). For each, extract: {"insight": "A summary of their retention goal.", "category": "Customer Retention", "quote": "The direct sentence where the goal was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Retention Goal', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'customer_support': {
-        "prompt": """You are a customer support analyst. Your goal is to find companies discussing "long support ticket times," "improving customer satisfaction (CSAT)," or "scaling customer service." For each, extract: {"insight": "A summary of their support challenge.", "category": "Customer Support", "quote": "The direct sentence where the challenge was mentioned."}. Return a list of JSON objects.""",
+        "prompt": '''You are a customer support analyst. Your goal is to find companies discussing challenges in their customer support operations. Look for mentions of long ticket times, improving customer satisfaction (CSAT), or scaling customer service. For each, extract: {"insight": "A summary of their support challenge.", "category": "Customer Support", "quote": "The direct sentence where the challenge was mentioned."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Support Challenge', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'user_feedback': {
-        "prompt": """You are a product researcher. Your goal is to find companies actively seeking "user feedback," "beta testers," or "product reviews." For each, extract: {"insight": "A summary of what they are seeking feedback on.", "category": "User Feedback", "quote": "The direct sentence where feedback was requested."}. Return a list of JSON objects.""",
+        "prompt": '''You are a product researcher. Your goal is to find companies actively seeking feedback on their products or services. Look for requests for user feedback, beta testers, or product reviews. For each, extract: {"insight": "A summary of what they are seeking feedback on.", "category": "User Feedback", "quote": "The direct sentence where feedback was requested."}. Return a list of JSON objects.''',
         "columns": [{'name': 'Feedback Request', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     },
     'executive_subtext': {
-        "prompt": """You are an expert organizational psychologist and business analyst. Your goal is to detect hidden meanings, stress, or problems in seemingly positive corporate communications. Analyze the provided text from a business leader. Look for "positive" statements that might hide negative subtext, such as burnout, resource shortages, or operational struggles. For example, a phrase like "the team really grinded it out last quarter" could be a sign of potential burnout. "Pivoting quickly" could mean a lack of clear strategy. For each potential subtext you find, extract the following into a JSON object: 1. "insight": What is the potential hidden negative meaning or "veiled cry for help"? 2. "category": Classify the issue (e.g., "Team Burnout", "Strategic Uncertainty", "Resource Strain"). 3. "quote": The full, seemingly positive sentence that contains the subtext. Return a list of JSON objects. If none are found, return an empty list.""",
+        "prompt": '''You are an expert organizational psychologist and business analyst. Your goal is to detect hidden meanings, stress, or problems in seemingly positive corporate communications. Analyze text from business leaders for "positive" statements that might hide negative subtext like burnout, resource shortages, or strategic struggles. For example, "the team really grinded it out" could suggest burnout. For each potential subtext, extract: 1. "insight": What is the potential hidden negative meaning? 2. "category": Classify the issue (e.g., "Team Burnout", "Strategic Uncertainty", "Resource Strain"). 3. "quote": The full, seemingly positive sentence that contains the subtext. Return a list of JSON objects.''',
         "columns": [{'name': 'Potential Subtext', 'id': 'insight'}, {'name': 'Inferred Issue', 'id': 'category'}, {'name': 'Original Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     }
 }
@@ -194,9 +194,31 @@ def run_scraper_analysis(api_key, analysis_goal, sites_str):
     extraction_prompt = goal_details["prompt"]
     columns = goal_details["columns"]
     all_results = []
+    
+    # Handle the #google command
+    sites = sites_str.split('\n')
     target_urls = []
+    google_search_query = None
 
-        # This loop will now run for standard URLs or for URLs found by the #google command
+    if sites and sites[0].startswith("#google"):
+        google_search_query = sites[0][7:].strip()
+        if not google_search_query:
+            log("Error: #google command used without a search query.")
+            return "error", None, ["Error: #google command used without a search query."]
+        
+        log(f"Using Google Search with query: {google_search_query}")
+        try:
+            # You need to have discover_urls_with_google available or imported
+            from backend import discover_urls_with_google 
+            target_urls = discover_urls_with_google(google_search_query)
+            if not target_urls:
+                log("Google search returned no URLs.")
+        except Exception as e:
+            log(f"An error occurred during Google search: {e}")
+            return "error", None, log_messages
+    else:
+        target_urls = sites
+
     for url in target_urls:
         if not url.startswith(('http://', 'https://')):
             log(f"Skipping invalid URL: {url}")

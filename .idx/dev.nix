@@ -17,6 +17,7 @@
     pkgs.python3Packages.google-cloud-secret-manager
     pkgs.python3Packages.tweepy
     pkgs.python3Packages.praw
+    pkgs.python3Packages.sendgrid
   ];
   idx.extensions = [
     "svelte.svelte-vscode"

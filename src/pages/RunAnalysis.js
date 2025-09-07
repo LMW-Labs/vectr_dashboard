@@ -132,6 +132,7 @@ export default function RunAnalysis() {
                                         />
                                     }
                                     label={source.url}
+                                    sx={{ color: 'black' }}
                                 />
                             ))}
                         </FormGroup>
