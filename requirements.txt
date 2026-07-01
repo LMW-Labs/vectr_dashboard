@@ -14,3 +14,4 @@ google-generativeai
 tweepy
 praw
 tenacity==8.5.0
+croniter==2.0.5
