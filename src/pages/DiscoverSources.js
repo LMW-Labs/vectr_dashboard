@@ -22,11 +22,12 @@ export default function DiscoverSources() {
         body: JSON.stringify({ query }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to fetch from discovery API.');
+        throw new Error(data.error || 'Failed to fetch from discovery API.');
       }
 
-      const data = await response.json();
       setResults(data.urls);
     } catch (err) {
       setError(err.message);

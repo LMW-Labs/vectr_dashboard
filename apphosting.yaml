@@ -1,23 +1,17 @@
-# Settings for Backend (on Cloud Run).
-# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
-runConfig:
-  minInstances: 0
-  # maxInstances: 100
-  # concurrency: 80
-  # cpu: 1
-  # memoryMiB: 512
-
-# Environment variables and secrets.
-# env:
-  # Configure environment variables.
-  # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
-  # - variable: MESSAGE
-  #   value: Hello world!
-  #   availability:
-  #     - BUILD
-  #     - RUNTIME
-
-  # Grant access to secrets in Cloud Secret Manager.
-  # See https://firebase.google.com/docs/app-hosting/configure#secret-parameters
-  # - variable: MY_SECRET
-  #   secret: mySecretRef
+backend:
+  run: gunicorn -w 4 'backend:app'
+  managedSecrets:
+    - SENDGRID_API_KEY
+    - GOOGLE_API_KEY
+    - SEARCH_ENGINE_ID
+    - GEMINI_API_KEY
+    - ALGOLIA_APP_ID
+    - ALGOLIA_SEARCH_ONLY_API_KEY
+frontend:
+  build: npm run build
+  run: npx serve -s build
+rewrites:
+  - source: /api/**
+    destination: /__backend__/**
+  - source: /**
+    destination: /index.html

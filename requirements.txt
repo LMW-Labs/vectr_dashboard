@@ -4,4 +4,12 @@ google-cloud-firestore==2.11.0
 google-api-python-client
 wordcloud
 pandas
+gunicorn
+requests
 sendgrid
+google-cloud-secret-manager
+beautifulsoup4
+Jinja2
+google-generativeai
+tweepy
+praw
