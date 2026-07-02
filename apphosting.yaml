@@ -1,5 +1,5 @@
 backend:
-  run: gunicorn -w 4 'backend:app'
+  run: sh -c "gunicorn --bind 0.0.0.0:$PORT --workers 4 backend:app"
   managedSecrets:
     - SENDGRID_API_KEY
     - GOOGLE_API_KEY
