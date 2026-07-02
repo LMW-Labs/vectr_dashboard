@@ -289,5 +289,30 @@ def get_insights():
     except Exception as e:
         print(f"Error fetching insights: {e}")
         return jsonify({'error': 'Failed to fetch insights'}), 500
+
+@app.route('/api/insights/<insight_id>', methods=['PATCH'])
+@cross_origin()
+def update_insight(insight_id):
+    """Updates the tracked flag and/or notes on a single insight."""
+    try:
+        payload = request.get_json(force=True) or {}
+        updates = {}
+        if 'tracked' in payload:
+            updates['tracked'] = bool(payload['tracked'])
+        if 'notes' in payload:
+            updates['notes'] = str(payload['notes'])
+
+        if not updates:
+            return jsonify({'error': 'No valid fields to update (expected tracked and/or notes)'}), 400
+
+        db = firestore.Client()
+        db.collection('insights').document(insight_id).update(updates)
+
+        return jsonify({'id': insight_id, **updates})
+
+    except Exception as e:
+        print(f"Error updating insight {insight_id}: {e}")
+        return jsonify({'error': 'Failed to update insight'}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))

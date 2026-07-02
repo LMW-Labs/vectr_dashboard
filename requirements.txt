@@ -13,3 +13,4 @@ Jinja2
 google-generativeai
 tweepy
 praw
+tenacity==9.0.0
