@@ -15,6 +15,9 @@ import DiscoverSources from './pages/DiscoverSources';
 import RunAnalysis from './pages/RunAnalysis';
 import ExploreInsights from './pages/ExploreInsights';
 import DataUploader from './pages/DataUploader';
+import ScansPage from './pages/ScansPage';
+import InsightDetail from './pages/InsightDetail';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 
 const drawerWidth = 240;
 
@@ -24,6 +27,7 @@ const menuItems = [
   { text: 'Run Analysis', path: '/run-analysis', icon: <PlayCircleOutlineIcon />, component: <RunAnalysis /> },
   { text: 'Explore Insights', path: '/explore-insights', icon: <ExploreIcon />, component: <ExploreInsights /> },
   { text: 'Data Uploader', path: '/data-uploader', icon: <CloudUploadIcon />, component: <DataUploader /> },
+  { text: 'Scans', path: '/scans', icon: <ScheduleIcon />, component: <ScansPage /> },
   { text: 'Settings', path: '/settings', icon: <SettingsIcon />, component: <Typography>Settings Content</Typography> },
 ];
 
@@ -99,6 +103,7 @@ export default function DashboardLayout({ user, handleSignOut }) {
           {menuItems.map((item) => (
             <Route key={item.path} path={item.path} element={item.component} />
           ))}
+          <Route path="/insights/:id" element={<InsightDetail />} />
         </Routes>
       </Box>
     </Box>
