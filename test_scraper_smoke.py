@@ -103,6 +103,84 @@ class TestScraperSmoke(unittest.TestCase):
         self.assertEqual(second_run_hashes[3:], first_run_hashes)  # stable content_hash across reruns
         self.assertEqual(len(raw_content_store), 3)  # raw_content stayed deduped, not doubled
 
+    def test_new_prompt_goals_registered_with_extra_schema_fields(self):
+        for goal in ('willingness_to_pay_signals', 'tool_switching_signals'):
+            self.assertIn(goal, scraper_logic.PROMPT_LIBRARY)
+            self.assertEqual(scraper_logic.PROMPT_LIBRARY[goal]['version'], 1)
+
+        wtp_columns = scraper_logic.PROMPT_LIBRARY['willingness_to_pay_signals']['columns']
+        schema = scraper_logic._build_response_schema(wtp_columns)
+        self.assertIn('estimated_wtp_tier', schema['items']['properties'])
+        self.assertIn('estimated_wtp_tier', schema['items']['required'])
+        self.assertNotIn('source_url', schema['items']['properties'])
+
+        switching_columns = scraper_logic.PROMPT_LIBRARY['tool_switching_signals']['columns']
+        schema = scraper_logic._build_response_schema(switching_columns)
+        for field in ('from_tool', 'to_tool', 'reason'):
+            self.assertIn(field, schema['items']['properties'])
+            self.assertIn(field, schema['items']['required'])
+
+    @patch('scraper_logic.firestore')
+    @patch('scraper_logic.generate_embedding')
+    @patch('sources.web.scrape_website_text')
+    @patch('scraper_logic.extract_info_with_gemini')
+    @patch('scraper_logic.genai')
+    def test_willingness_to_pay_signals_end_to_end(
+        self, mock_genai, mock_extract, mock_scrape, mock_embed, mock_firestore
+    ):
+        mock_scrape.return_value = "someone should build a route inventory tool, I'd pay $100/mo for it"
+        mock_embed.return_value = [0.1, 0.2, 0.3]
+        mock_extract.return_value = (
+            '[{"insight": "wants a route inventory tool", "category": "Inventory", '
+            '"quote": "someone should build a route inventory tool", '
+            '"estimated_wtp_tier": "mid_50_to_500"}]'
+        )
+
+        mock_db = MagicMock()
+        mock_firestore.Client.return_value = mock_db
+        mock_firestore.SERVER_TIMESTAMP = "SERVER_TIMESTAMP"
+
+        raw_content_store = {}
+        collection_mocks = {}
+
+        def raw_content_document_side_effect(doc_id):
+            doc_ref = MagicMock()
+            doc_ref.set.side_effect = lambda data, merge=True: raw_content_store.__setitem__(doc_id, data)
+
+            def get_side_effect():
+                snap = MagicMock()
+                stored = raw_content_store.get(doc_id)
+                snap.exists = stored is not None
+                snap.to_dict.return_value = stored
+                return snap
+            doc_ref.get.side_effect = get_side_effect
+            return doc_ref
+
+        def collection_side_effect(name):
+            if name not in collection_mocks:
+                collection_mocks[name] = MagicMock()
+                if name == 'raw_content':
+                    collection_mocks[name].document.side_effect = raw_content_document_side_effect
+            return collection_mocks[name]
+
+        mock_db.collection.side_effect = collection_side_effect
+
+        status, columns, _ = scraper_logic.run_scraper_analysis(
+            "fake-api-key", "willingness_to_pay_signals", "https://example.com/post"
+        )
+
+        self.assertEqual(status, "success")
+        column_ids = {c['id'] for c in columns}
+        self.assertIn('estimated_wtp_tier', column_ids)
+
+        written = collection_mocks['insights'].document.return_value.set.call_args[0][0]
+        self.assertEqual(written['estimated_wtp_tier'], 'mid_50_to_500')
+
+        # The schema passed to Gemini for this goal must include the extra field,
+        # not just the generic insight/category/quote triple.
+        schema_arg = mock_extract.call_args[0][2]
+        self.assertIn('estimated_wtp_tier', schema_arg['items']['properties'])
+
 
 if __name__ == '__main__':
     unittest.main()

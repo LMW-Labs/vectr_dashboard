@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, TextField, Button, Typography, Grid, CircularProgress, Alert } from '@mui/material';
-import API_BASE_URL from '../apiConfig'; // Import the base URL
+import getApiUrl from '../apiConfig'; // Import the base URL
 
 export default function DiscoverSources() {
   const [query, setQuery] = useState('');
@@ -14,7 +14,7 @@ export default function DiscoverSources() {
     setResults([]);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/discover`, { // Use the base URL
+      const response = await fetch(`${getApiUrl()}/api/discover`, { // Use the base URL
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

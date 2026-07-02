@@ -7,7 +7,7 @@ import {
   CircularProgress, Grid, Alert, FormGroup, FormControlLabel, Checkbox
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import API_BASE_URL from '../apiConfig';
+import getApiUrl from '../apiConfig';
 
 const goalOptions = [
     { label: '--- Marketing & Sales ---', value: 'header1', disabled: true },
@@ -38,7 +38,7 @@ export default function RunAnalysis() {
   useEffect(() => {
     const fetchDiscoveredSources = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/discovered_sources`);
+        const response = await fetch(`${getApiUrl()}/api/discovered_sources`);
         if (!response.ok) {
           throw new Error('Could not fetch discovered sources.');
         }
@@ -74,7 +74,7 @@ export default function RunAnalysis() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+      const response = await fetch(`${getApiUrl()}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -17,26 +17,37 @@ RETRY = dict(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=1, min
 
 EMBEDDING_MODEL = 'models/text-embedding-004'
 
-INSIGHT_RESPONSE_SCHEMA = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "insight": {"type": "string"},
-            "category": {"type": "string"},
-            "quote": {"type": "string"},
+def _build_response_schema(columns):
+    """Builds a Gemini JSON response schema (array of objects) from a PROMPT_LIBRARY columns list.
+
+    Derived per-goal (instead of a single fixed {insight, category, quote} schema) so that
+    goals with extra fields, like willingness_to_pay_signals' estimated_wtp_tier or
+    tool_switching_signals' from_tool/to_tool/reason, aren't stripped by schema enforcement.
+    """
+    properties = {}
+    required = []
+    for col in columns:
+        field_id = col['id']
+        if field_id == 'source_url':
+            continue
+        properties[field_id] = {"type": "string"}
+        required.append(field_id)
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": properties,
+            "required": required,
         },
-        "required": ["insight", "category", "quote"],
-    },
-}
+    }
 
 @retry(**RETRY)
-def extract_info_with_gemini(text_content, prompt):
+def extract_info_with_gemini(text_content, prompt, response_schema):
     """Uses Gemini with schema-enforced JSON output to extract structured information from text, retrying on transient API errors."""
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
     generation_config = genai.GenerationConfig(
         response_mime_type="application/json",
-        response_schema=INSIGHT_RESPONSE_SCHEMA,
+        response_schema=response_schema,
     )
     response = model.generate_content(
         prompt + "\n\nHere is the text:\n---\n" + text_content,
@@ -200,6 +211,16 @@ PROMPT_LIBRARY = {
         "version": 1,
         "prompt": '''You are an expert organizational psychologist and business analyst. Your goal is to detect hidden meanings, stress, or problems in seemingly positive corporate communications. Analyze text from business leaders for "positive" statements that might hide negative subtext like burnout, resource shortages, or strategic struggles. For example, "the team really grinded it out" could suggest burnout. For each potential subtext, extract: 1. "insight": What is the potential hidden negative meaning? 2. "category": Classify the issue (e.g., "Team Burnout", "Strategic Uncertainty", "Resource Strain"). 3. "quote": The full, seemingly positive sentence that contains the subtext. Return a list of JSON objects.''',
         "columns": [{'name': 'Potential Subtext', 'id': 'insight'}, {'name': 'Inferred Issue', 'id': 'category'}, {'name': 'Original Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
+    },
+    'willingness_to_pay_signals': {
+        "version": 1,
+        "prompt": """You are a market analyst hunting for revenue signals. Scan the text for any indication a person or business would spend money to solve a problem. Look for phrases like: "I would pay", "someone should build", "I'd give money for", "why doesn't X exist", "I've been looking for", "willing to pay $X for", "shut up and take my money". For each signal, extract: 1. "insight": what they would pay for. 2. "category": problem area (e.g., "Scheduling", "Inventory", "Reporting", "Compliance"). 3. "quote": the direct sentence. 4. "estimated_wtp_tier": "unknown" | "low_under_50" | "mid_50_to_500" | "high_500_plus" based on context. Return a list of JSON objects.""",
+        "columns": [{'name': 'Would Pay For', 'id': 'insight'}, {'name': 'Category', 'id': 'category'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'WTP Tier', 'id': 'estimated_wtp_tier'}, {'name': 'Source URL', 'id': 'source_url'}]
+    },
+    'tool_switching_signals': {
+        "version": 1,
+        "prompt": """You are a competitive intelligence analyst. Find any mention of switching between tools, abandoning a tool, or seeking alternatives. Look for phrases like: "we switched from X to Y because", "X is killing us", "looking for alternative to X", "X used to be good but", "moving off of X", "X is the worst". For each signal, extract: 1. "insight": summary of the switch or search. 2. "category": always "Tool Switching". 3. "quote": the direct sentence. 4. "from_tool": the tool being left (or null). 5. "to_tool": the tool being adopted (or null). 6. "reason": the stated reason for the switch. Return a list of JSON objects.""",
+        "columns": [{'name': 'Switching Signal', 'id': 'insight'}, {'name': 'From Tool', 'id': 'from_tool'}, {'name': 'To Tool', 'id': 'to_tool'}, {'name': 'Reason', 'id': 'reason'}, {'name': 'Direct Quote', 'id': 'quote'}, {'name': 'Source URL', 'id': 'source_url'}]
     }
 }
 
@@ -286,7 +307,8 @@ def analyze_raw_content(raw_content_id, analysis_goal):
         raise ValueError(f"Invalid analysis goal '{analysis_goal}'")
 
     prompt_version = goal_details.get('version', 1)
-    extracted_info_json = extract_info_with_gemini(raw['text'], goal_details['prompt'])
+    response_schema = _build_response_schema(goal_details['columns'])
+    extracted_info_json = extract_info_with_gemini(raw['text'], goal_details['prompt'], response_schema)
 
     try:
         data = json.loads(extracted_info_json)

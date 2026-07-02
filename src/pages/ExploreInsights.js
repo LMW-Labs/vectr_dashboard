@@ -3,15 +3,27 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Card, CardHeader, CardContent, CircularProgress, Alert, Chip, Stack, TextField, Link } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
-import API_BASE_URL from '../apiConfig'; // Import the base URL
+import getApiUrl from '../apiConfig'; // Import the base URL
 
 const fetchAllInsights = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/insights`); // Use the base URL
+  const response = await fetch(`${getApiUrl()}/api/insights`); // Use the base URL
   if (!response.ok) {
     throw new Error('Failed to fetch insights from the API.');
   }
   const data = await response.json();
   return data;
+};
+
+const updateInsight = async (id, updates) => {
+  const response = await fetch(`${getApiUrl()}/api/insights/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to save changes.');
+  }
+  return response.json();
 };
 
 const toDate = (timestamp) => {
@@ -26,6 +38,7 @@ export default function ExploreInsights() {
   const [insights, setInsights] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
 
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [goalFilter, setGoalFilter] = useState(null);
@@ -37,7 +50,12 @@ export default function ExploreInsights() {
     const loadInsights = async () => {
       try {
         const data = await fetchAllInsights();
-        setInsights(data.map((insight, index) => ({ id: insight.id || index, ...insight })));
+        setInsights(data.map((insight, index) => ({
+          id: insight.id || index,
+          tracked: false,
+          notes: '',
+          ...insight,
+        })));
         setIsLoading(false);
       } catch (err) {
         setError(err.message);
@@ -63,6 +81,21 @@ export default function ExploreInsights() {
     });
   }, [insights, categoryFilter, goalFilter, sourceTypeFilter, dateFrom, dateTo]);
 
+  const processRowUpdate = async (newRow, oldRow) => {
+    const updates = {};
+    if (newRow.tracked !== oldRow.tracked) updates.tracked = newRow.tracked;
+    if (newRow.notes !== oldRow.notes) updates.notes = newRow.notes;
+
+    if (Object.keys(updates).length === 0) {
+      return oldRow;
+    }
+
+    await updateInsight(newRow.id, updates);
+    setSaveError(null);
+    setInsights((prev) => prev.map((row) => (row.id === newRow.id ? { ...row, ...updates } : row)));
+    return newRow;
+  };
+
   const columns = [
     {
       field: 'insight',
@@ -85,6 +118,8 @@ export default function ExploreInsights() {
       flex: 1,
       valueGetter: (value) => toDate(value),
     },
+    { field: 'tracked', headerName: 'Tracked', type: 'boolean', flex: 0.6, editable: true },
+    { field: 'notes', headerName: 'Notes', flex: 2, editable: true },
   ];
 
   if (isLoading) {
@@ -104,6 +139,7 @@ export default function ExploreInsights() {
       <Card>
         <CardHeader title="All Discovered Insights" subheader="Browse and search through all your historical insights." />
         <CardContent>
+          {saveError && <Alert severity="error" sx={{ mb: 2 }}>{saveError}</Alert>}
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
             {categories.map((category) => (
               <Chip
@@ -156,6 +192,8 @@ export default function ExploreInsights() {
               initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
               pageSizeOptions={[10, 25, 50]}
               checkboxSelection
+              processRowUpdate={processRowUpdate}
+              onProcessRowUpdateError={(err) => setSaveError(err.message)}
             />
           </div>
         </CardContent>

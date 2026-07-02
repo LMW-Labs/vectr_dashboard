@@ -24,7 +24,7 @@ def fetch_from_x_api(keywords):
         return None
 
     client = tweepy.Client(bearer_token)
-    query = f"(' OR '.join(keywords)) -is:retweet lang:en"
+    query = f"({' OR '.join(keywords)}) -is:retweet lang:en"
     response = client.search_recent_tweets(query=query, max_results=100)
 
     tweets = response.data

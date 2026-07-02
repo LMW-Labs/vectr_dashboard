@@ -5,7 +5,7 @@ import {
   Box, Card, CardHeader, CardContent, Typography, Chip, List, ListItem,
   ListItemText, CircularProgress, Alert, Link,
 } from '@mui/material';
-import API_BASE_URL from '../apiConfig';
+import getApiUrl from '../apiConfig';
 
 export default function InsightDetail() {
   const { id } = useParams();
@@ -20,7 +20,7 @@ export default function InsightDetail() {
     // endpoint once one exists — cheaper than shipping every insight.
     const loadInsight = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/insights`);
+        const response = await fetch(`${getApiUrl()}/api/insights`);
         if (!response.ok) {
           throw new Error('Failed to fetch insight.');
         }
@@ -41,7 +41,7 @@ export default function InsightDetail() {
     // wires the fetch for when find_similar_insights() is exposed as an endpoint.
     const loadSimilarInsights = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/insights/${id}/similar`);
+        const response = await fetch(`${getApiUrl()}/api/insights/${id}/similar`);
         if (!response.ok) {
           return;
         }
