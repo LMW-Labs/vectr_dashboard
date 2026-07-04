@@ -48,5 +48,6 @@ class RedditSource:
             'source_type': 'reddit',
             'source_url': f"reddit://r/{subreddit}?q={','.join(keywords)}",
             'text': text,
+            'subreddit': subreddit,
             'fetched_at': time.time(),
         }]
