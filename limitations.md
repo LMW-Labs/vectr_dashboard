@@ -10,7 +10,30 @@ Carried forward, not fixed now:
   rather than `ArrayUnion`, since Firestore can't target-replace one array
   element. Fine at current volume; will be the heavier path if a single
   insight accumulates thousands of mentions.
-- **`SERVER_TIMESTAMP` used inside `transaction.update()`** — confirm this is
-  accepted by the pinned `google-cloud-firestore` version in
-  `requirements.txt` before trusting it; some older client versions reject
-  sentinels inside transactional writes.
+- **`SERVER_TIMESTAMP` used inside `transaction.update()`** — confirmed working
+  against the pinned `google-cloud-firestore==2.11.0` via the emulator (used
+  for `last_seen` in `_merge_into_existing_insight`, a top-level field).
+  **However, `SERVER_TIMESTAMP` cannot be used inside an array element at
+  all** — confirmed this raises `TypeError` immediately, both via `.set()`
+  and via `ArrayUnion()`, regardless of transaction. This is why each
+  `mentions[]` entry's `seen_at` (added for `compute_trends()`) is a
+  client-side `datetime.datetime.now(datetime.timezone.utc)` instead of the
+  server sentinel — the only two options for an array-element timestamp are
+  client-side `datetime.now()` (clock-skew risk, but works) or omitting it.
+- **`compute_trends()` depends on `mentions[].seen_at`**, which only exists
+  going forward from this change — any insight docs written before this
+  commit have mentions with no `seen_at`, so they're silently excluded from
+  both trend windows (never counted, never crash). Verified via emulator
+  test. No backfill has been written for pre-existing data.
+- **`_merge_into_existing_insight`'s `@firestore.transactional` retry has no
+  handling for exhausting its retry cap.** Reproduced against the emulator:
+  two real concurrent writers merging into the *same* insight doc fail
+  intermittently (~2 of 3 runs in testing) with `ValueError: Failed to
+  commit transaction in 5 attempts.` — the Firestore client's built-in
+  retry limit, not configurable from this code. The exception propagates
+  uncaught up through `upsert_insight` -> `analyze_raw_content` ->
+  `run_scraper_analysis`. Unlikely to bite given the pipeline dispatches
+  sources sequentially within one run today; would need two concurrent
+  `run_scraper_analysis` calls (or a future parallelized dispatch) landing
+  on the same insight at the same instant. No retry-with-backoff wrapper
+  has been added.

@@ -200,7 +200,7 @@ def analyze_endpoint():
         query_start_time = start_time - datetime.timedelta(seconds=10)
 
         db = firestore.Client()
-        query = db.collection('insights').where(filter=firestore.FieldFilter('timestamp', '>=', query_start_time))
+        query = db.collection('insights').where('last_seen', '>=', query_start_time)
         
         # FIX: Also, ensure the document ID is added for the frontend
         docs = []

@@ -32,7 +32,7 @@ def run_scheduled_scans():
         logger.error("GEMINI_API_KEY not found in Secret Manager. Cannot run scheduled scans.")
         return
 
-    scans_ref = db.collection('scans').where(filter=firestore.FieldFilter('enabled', '==', True))
+    scans_ref = db.collection('scans').where('enabled', '==', True)
     for doc in scans_ref.stream():
         scan = doc.to_dict()
         if not _is_due(scan, now):

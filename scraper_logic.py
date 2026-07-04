@@ -5,6 +5,7 @@ import logging
 import math
 import json
 import time
+import datetime
 import google.generativeai as genai
 from google.cloud import firestore
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -418,6 +419,10 @@ def _merge_into_existing_insight(db, insight_id, item, existing_mentions):
         'source_type': item.get('source_type'),
         'subreddit': item.get('subreddit'),
         'raw_content_id': raw_content_id,
+        # Client-side, not firestore.SERVER_TIMESTAMP: the sentinel raises
+        # TypeError inside an array element (this dict lands in mentions[]
+        # via ArrayUnion below), confirmed against the emulator.
+        'seen_at': datetime.datetime.now(datetime.timezone.utc),
     }
 
     existing_url_match = next(
@@ -436,7 +441,10 @@ def _merge_into_existing_insight(db, insight_id, item, existing_mentions):
                 new_mention if m.get('source_url') == source_url else m
                 for m in current_mentions
             ]
-            transaction.update(doc_ref, {'mentions': updated_mentions})
+            transaction.update(doc_ref, {
+                'mentions': updated_mentions,
+                'last_seen': firestore.SERVER_TIMESTAMP,
+            })
         else:
             transaction.update(doc_ref, {
                 'mention_count': firestore.Increment(1),
@@ -467,6 +475,9 @@ def _create_new_insight(db, item):
         'source_type': item.get('source_type'),
         'subreddit': item.get('subreddit'),
         'raw_content_id': item.get('raw_content_id'),
+        # Client-side, not firestore.SERVER_TIMESTAMP -- see the matching
+        # comment in _merge_into_existing_insight's new_mention.
+        'seen_at': datetime.datetime.now(datetime.timezone.utc),
     }]
     doc['first_seen'] = firestore.SERVER_TIMESTAMP
     doc['last_seen'] = firestore.SERVER_TIMESTAMP
@@ -474,6 +485,97 @@ def _create_new_insight(db, item):
 
     db.collection('insights').document(content_hash).set(doc, merge=True)
     return content_hash
+
+
+TREND_WINDOW_DAYS = 7
+
+
+def compute_trends(db=None):
+    """
+    Computes 7-day mention velocity per analysis_goal, based on
+    mentions[].seen_at timestamps on each insight doc.
+
+    current window:  seen_at in [now - 7d, now)
+    previous window: seen_at in [now - 14d, now - 7d)
+    score = current_count - previous_count (delta, avoids div-by-zero)
+
+    label:
+      previous_count == 0 and current_count > 0 -> "new"
+      score > 0                                  -> "rising"
+      score < 0                                  -> "falling"
+      score == 0                                 -> "flat"
+
+    Mentions missing `seen_at` (pre-migration data) are excluded from both
+    windows rather than backfilled -- acceptable at current data volume,
+    revisit if historical accuracy matters later.
+
+    Writes one doc per insight per run to `trend_history`:
+      { insight_id, analysis_goal, computed_at, window_start, window_end,
+        current_count, previous_count, score, label }
+
+    Also writes `trend` and `trend_score` back onto the insight doc itself
+    for dashboard consumption (latest value only, no history there).
+    """
+    if db is None:
+        db = firestore.Client()
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    window_start_current = now - datetime.timedelta(days=TREND_WINDOW_DAYS)
+    window_start_previous = now - datetime.timedelta(days=TREND_WINDOW_DAYS * 2)
+
+    insights = db.collection('insights').stream()
+    results = []
+
+    for doc in insights:
+        data = doc.to_dict()
+        mentions = data.get('mentions', [])
+
+        current_count = 0
+        previous_count = 0
+
+        for m in mentions:
+            seen_at = m.get('seen_at')
+            if seen_at is None:
+                continue  # pre-migration mention, excluded from windowing
+            if window_start_current <= seen_at < now:
+                current_count += 1
+            elif window_start_previous <= seen_at < window_start_current:
+                previous_count += 1
+
+        score = current_count - previous_count
+
+        if previous_count == 0 and current_count > 0:
+            label = "new"
+        elif score > 0:
+            label = "rising"
+        elif score < 0:
+            label = "falling"
+        else:
+            label = "flat"
+
+        trend_record = {
+            'insight_id': doc.id,
+            'analysis_goal': data.get('analysis_goal'),
+            'computed_at': firestore.SERVER_TIMESTAMP,
+            'window_start': window_start_current,
+            'window_end': now,
+            'current_count': current_count,
+            'previous_count': previous_count,
+            'score': score,
+            'label': label,
+        }
+
+        db.collection('trend_history').document().set(trend_record)
+
+        db.collection('insights').document(doc.id).update({
+            'trend': label,
+            'trend_score': score,
+        })
+
+        results.append(trend_record)
+
+    return results
+
 
 def run_scraper_analysis(api_key, analysis_goal, sites_str):
     log_messages = []
