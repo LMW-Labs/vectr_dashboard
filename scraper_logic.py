@@ -227,19 +227,23 @@ def parse_targets(sites_str):
     """
     Parses sites_str (one target per line, or comma-separated plain URLs on a
     line) into (source_type, source_config) tuples:
-      https://example.com/post           -> ('web', {'url': ...})
-      reddit:<subreddit>:<kw1,kw2>        -> ('reddit', {'subreddit': ..., 'keywords': [...]})
-      x:<kw1,kw2>                         -> ('x', {'keywords': [...]})
+      https://example.com/post              -> ('web', {'url': ...})
+      reddit:<subreddit>:<kw1,kw2>           -> ('reddit', {'subreddit': ..., 'keywords': [...]})
+      x:<kw1,kw2>                            -> ('x', {'keywords': [...]})
+      hn:<kw1,kw2>                           -> ('hackernews', {'keywords': [...]})
+      stackoverflow:<kw1,kw2>                -> ('stackexchange', {'site': 'stackoverflow', 'keywords': [...]})
+      stackexchange:<site>:<kw1,kw2>         -> ('stackexchange', {'site': ..., 'keywords': [...]})
     Anything else becomes ('invalid', {'raw': ...}) so the caller can log and skip it.
     """
     targets = []
+    prefixes = ('reddit:', 'x:', 'hn:', 'stackoverflow:', 'stackexchange:')
     for line in sites_str.split('\n'):
         line = line.strip()
         if not line:
             continue
-        # reddit:/x: entries carry commas between keywords, so only split
+        # These entries carry commas between keywords, so only split
         # plain lines on commas to support multiple URLs per line.
-        if line.startswith('reddit:') or line.startswith('x:'):
+        if line.startswith(prefixes):
             entries = [line]
         else:
             entries = [e.strip() for e in line.split(',') if e.strip()]
@@ -260,6 +264,28 @@ def parse_targets(sites_str):
                     targets.append(('invalid', {'raw': entry}))
                     continue
                 targets.append(('x', {'keywords': keywords}))
+            elif entry.startswith('hn:'):
+                _, _, keywords_str = entry.partition(':')
+                keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
+                if not keywords:
+                    targets.append(('invalid', {'raw': entry}))
+                    continue
+                targets.append(('hackernews', {'keywords': keywords}))
+            elif entry.startswith('stackoverflow:'):
+                _, _, keywords_str = entry.partition(':')
+                keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
+                if not keywords:
+                    targets.append(('invalid', {'raw': entry}))
+                    continue
+                targets.append(('stackexchange', {'site': 'stackoverflow', 'keywords': keywords}))
+            elif entry.startswith('stackexchange:'):
+                parts = entry.split(':', 2)
+                if len(parts) != 3 or not parts[1].strip() or not parts[2].strip():
+                    targets.append(('invalid', {'raw': entry}))
+                    continue
+                _, site, keywords_str = parts
+                keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
+                targets.append(('stackexchange', {'site': site.strip(), 'keywords': keywords}))
             elif entry.startswith(('http://', 'https://')):
                 targets.append(('web', {'url': entry}))
             else:
@@ -274,6 +300,10 @@ def _describe_target(source_type, source_config):
         return f"r/{source_config['subreddit']} for {source_config['keywords']}"
     if source_type == 'x':
         return f"X search for {source_config['keywords']}"
+    if source_type == 'hackernews':
+        return f"HN search for {source_config['keywords']}"
+    if source_type == 'stackexchange':
+        return f"{source_config['site']} search for {source_config['keywords']}"
     return str(source_config)
 
 def write_raw_content(source_type, source_url, text, subreddit=None):

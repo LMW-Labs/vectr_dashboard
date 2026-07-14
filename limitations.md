@@ -37,3 +37,12 @@ Carried forward, not fixed now:
   `run_scraper_analysis` calls (or a future parallelized dispatch) landing
   on the same insight at the same instant. No retry-with-backoff wrapper
   has been added.
+- **`scraper_logic.py` imports the deprecated `google.generativeai` SDK**,
+  which now emits `FutureWarning: All support for the google.generativeai
+  package has ended` on import (confirmed via `test_scraper_smoke.py` run
+  on 2026-07-05). Google's replacement is the `google.genai` package. Not
+  urgent — it still works — but should be migrated before Google actually
+  pulls support. Touches every `genai.` call site in `scraper_logic.py`
+  (model construction, `response_mime_type`/`response_schema` config,
+  `generate_embedding`), so budget it as its own task rather than folding
+  it into an unrelated change.
