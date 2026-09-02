@@ -2,15 +2,17 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Your web app's Firebase configuration
+// Firebase web config. These are client-side identifiers, not secrets — access is
+// controlled by Firestore Security Rules and API key restrictions, not by hiding them.
+// They live in env vars so the repo carries no project-specific values.
 const firebaseConfig = {
-  apiKey: "AIzaSyCPH_gPkyBCzHct-vgGzHRn5-6T2FA7csQ",
-  authDomain: "vectr-dashboard.firebaseapp.com",
-  projectId: "vectr-dashboard",
-  storageBucket: "vectr-dashboard.firebasestorage.app",
-  messagingSenderId: "367998317739",
-  appId: "1:367998317739:web:a2aef87997adc5f3fdf3ee",
-  measurementId: "G-LJMDJER171"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
